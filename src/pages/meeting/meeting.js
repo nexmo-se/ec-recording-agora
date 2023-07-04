@@ -1,6 +1,7 @@
 import AgoraRTC from "agora-rtc-sdk";
 import "bulma";
 import $ from "jquery";
+import OT from '@opentok/client';
 import * as Cookies from "js-cookie";
 import { merge } from "lodash";
 import "@/assets/css/icons.css";
@@ -31,6 +32,11 @@ let shareClient = null;
 let shareStream = null;
 let mainId;
 let mainStream;
+let vonageArchive = {
+  ecId: "",
+  archiveId: ""
+}
+let isEcRecording = false
 
 const globalLog = logger.init("global", "blue");
 const shareLog = logger.init("share", "yellow");
@@ -96,6 +102,83 @@ const uiInit = options => {
       break;
   }
 };
+
+// Initialize Vonage Session
+const vonageInit = (options) => {
+  const roomInfo = JSON.parse(options.roomInfo)
+  var session = OT.initSession(roomInfo.vonageApikey, roomInfo.vonageSessionId);
+  session.connect(roomInfo.vonageToken, function(error) {
+    if (error) {
+      console.log('Error connecting: ', error.name, error.message);
+    } else {
+      session.on('archiveStarted', handleEcRecordingStarted);
+      session.on('archiveStopped', handleEcRecordingStopped);
+      console.log('Connected to vonage session.');
+    }
+  });
+};
+
+const handleEcRecordingStarted = () => {
+  isEcRecording = true
+  console.log("ec start")
+  $(".recordingBtn").toggleClass("off");
+  $("#ec-recording-indicator").toggleClass("is-shown");
+  ButtonControl.enable(".recordingBtn");
+}
+
+const handleEcRecordingStopped = (archive) => {
+  isEcRecording = false
+  console.log("ec stop")
+
+  $(".recordingBtn").toggleClass("off");
+  $("#ec-recording-indicator").toggleClass("is-shown");
+  ButtonControl.enable(".recordingBtn");
+
+  setTimeout(() => {
+    if (!archive || !archive.id) return;
+    // show download button
+    if (!$(".downloadBtn")[0].classList.contains('is-shown')) {
+      $(".downloadBtn")[0].classList.add('is-shown')
+    }
+    // Remove Listeners
+    $(".downloadBtn").off()
+    $(".downloadBtn").on('click', function() {
+      const roomInfo = JSON.parse(options.roomInfo)
+      $.post({
+        traditional: true,
+        url: 'http://localhost:3002/getVonageRecord', // TODO: update url
+        contentType: 'application/json',
+        data: JSON.stringify( {
+          vonageToken: roomInfo.vonageToken, 
+          archiveId: archive.id,
+          roomName: roomInfo.name
+        }),
+        dataType: 'json',
+        success: function(response){
+          const url = response.url
+          if (typeof response.url === 'string') {
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'download');
+            link.target = "_blank"
+      
+            document.body.appendChild(link);
+      
+            link.click();
+            link.parentNode?.removeChild(link);
+      
+            window.URL.revokeObjectURL(url);
+          }
+        },
+        error: function(XMLHttpRequest, textStatus, errorThrown) {
+          if (errorThrown) {
+            alert(`Download Record Server Error: ${errorThrown}`);
+          }
+        }
+      });
+    })
+  }, 5000);
+}
 
 // Intializes the Agora client object
 
@@ -342,6 +425,68 @@ const setHighStream = (prev, next) => {
 };
 
 /**
+ * Start EC Recording
+ */
+
+const startEcRecording = () => {
+    const roomInfo = JSON.parse(options.roomInfo)
+    ButtonControl.disable(".recordingBtn");
+
+    console.log("start ec recording url", `${window.location.origin}?room=${roomInfo.name}`)
+     // Get Token from backend
+     $.post({
+      traditional: true,
+      url: 'http://localhost:3002/ecStartRecording', // TODO: update url
+      contentType: 'application/json',
+      data: JSON.stringify( {
+        sessionId: roomInfo.vonageSessionId, 
+        url: `${window.location.origin}?room=${roomInfo.name}`,
+        vonageToken: roomInfo.vonageToken
+      }),
+      dataType: 'json',
+      success: function(response){ 
+        vonageArchive = response
+      },
+      error: function(XMLHttpRequest, textStatus, errorThrown) {
+        if (errorThrown) {
+          ButtonControl.enable(".recordingBtn");
+          alert(`Server Error: ${errorThrown}`);
+        }
+      }
+    })
+}
+
+/**
+ * Stop EC Recording
+ */
+
+const stopEcRecording = () => {
+  const roomInfo = JSON.parse(options.roomInfo)
+  ButtonControl.disable(".recordingBtn");
+
+   // Get Token from backend
+   $.post({
+    traditional: true,
+    url: 'http://localhost:3002/ecStopRecording', // TODO: update url
+    contentType: 'application/json',
+    data: JSON.stringify( {
+      ecId: vonageArchive.ecId, 
+      archiveId: vonageArchive.archiveId,
+      vonageToken: roomInfo.vonageToken
+    }),
+    dataType: 'json',
+    success: function(response){ 
+    },
+    error: function(XMLHttpRequest, textStatus, errorThrown) {
+      if (errorThrown) {
+        alert(`Server Error: ${errorThrown}`);
+        ButtonControl.enable(".recordingBtn");
+      }
+    }
+  })
+}
+
+/**
  * Add callback for client event to control streams
  * @param {*} client
  * @param {*} streamList
@@ -487,9 +632,16 @@ const subscribeMouseEvents = () => {
       : localStream.enableAudio();
   });
 
-  $(".recordingBtn").on("click", function() {
-    $(".recordingBtn").toggleClass("off");
-    // TODO:
+  $(".recordingBtn").on("click", function(e) {
+    if (e.currentTarget.classList.contains("disabled")) {
+      return;
+    }
+    if (isEcRecording) {
+      stopEcRecording()
+    }
+    else {
+      startEcRecording()
+    }
   });
 
   $(".shareScreenBtn").on("click", function(e) {
@@ -611,6 +763,8 @@ const infoDetectSchedule = () => {
 // ----------------------------------
 options = optionsInit();
 uiInit(options);
+// initialize vonage session
+vonageInit(options)
 // eslint-disable-next-line
 client = AgoraRTC.createClient({
   mode: options.transcode

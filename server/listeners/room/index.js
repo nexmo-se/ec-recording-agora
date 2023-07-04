@@ -72,7 +72,7 @@ class RoomListener{
     }
 
     static async getVonageRecord(req, res) {
-        const archiveId = req.params.archiveId
+        const archiveId = req.body.archiveId
         try {
             if (!archiveId) {
             res.status(501);

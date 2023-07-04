@@ -3,6 +3,8 @@ const express = require('express')
 const path = require('path');
 const cors = require('cors')
 const RoomListener = require("./listeners/room");
+var qs = require('querystring');
+var _ = require('lodash');
 
 const app = express()
 app.use(express.json());
@@ -18,20 +20,47 @@ const nocache = (req, res, next) => {
 }
 
 const auth = (req, res, next) => {
-  const {pin, role, roomName} = req.body
-    if (!roomName) {
-      return res.status(401).send(); 
+  const {pin, role, roomName, vonageToken} = req.body
+    if (vonageToken && role !== process.env.EC_RENDER) {      
+      try {
+        let decoded = decodeVonageToken(vonageToken)
+        if (decoded.partner_id !== process.env.VONAGE_API_KEY) {
+          return res.status(501).end()
+        }
+        else {
+          next()
+        }
+      }
+      catch(err) {
+        console.log("decode error: ", err)
+        return res.status(501).end()
+      }
+    }
+    else if (!roomName) {
+      return res.status(501).send(); 
     }
     else if (role == process.env.EC_RENDER) {
       next()
     }
     else if (pin !== process.env.AUTH_PIN) {
-      return res.status(401).send();
+      return res.status(501).send();
     }
     else {
       next()
     }
 }
+
+const decodeVonageToken = function (token) {
+  var parsed = {};
+  var encoded = token.substring(4); // remove 'T1=='
+  var decoded = Buffer.from(encoded, 'base64').toString('ascii');
+  var tokenParts = decoded.split(':');
+  tokenParts.forEach(function (part) {
+    _.merge(parsed, qs.parse(part));
+  });
+  return parsed;
+};
+
 
 app.post('/initialize', auth, nocache, RoomListener.initialize)
 
@@ -40,7 +69,7 @@ app.post('/ecStartRecording', auth, RoomListener.startEcRecording)
 
 app.post('/ecStopRecording', auth, RoomListener.stopEcRecording) 
 
-app.get('/getVonageRecord/:archiveId', auth, RoomListener.getVonageRecord)
+app.post('/getVonageRecord', auth, RoomListener.getVonageRecord)
 
 app.use((req, res, next) => {
     // Here we add Cache-Control headers in accordance with the create-react-app best practices.

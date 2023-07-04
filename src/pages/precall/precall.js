@@ -7,7 +7,7 @@ import "@/assets/css/icons.css";
 // eslint-disable-next-line
 import Polyfill from "@/utils/Polyfill";
 import { isSafari } from "../../utils/BrowserCheck";
-import { RESOLUTION_ARR, getRoomInfo } from "@/utils/Settings";
+import { RESOLUTION_ARR } from "@/utils/Settings";
 import "@/assets/global.scss";
 import "./precall.scss";
 

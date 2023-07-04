@@ -10,9 +10,9 @@
   "scripts": {
     "test": "jest ./test",
     "lint": "eslint src/**/*.{js,jsx} --fix",
-    "dev": "cross-env NODE_ENV=development webpack-dev-server",
+    "dev": "export SET NODE_OPTIONS=--openssl-legacy-provider && cross-env NODE_ENV=development webpack-dev-server",
     "start": "npm run dev",
-    "build": "cross-env NODE_ENV=production webpack --progress --hide-modules",
+    "build": "export SET NODE_OPTIONS=--openssl-legacy-provider && cross-env NODE_ENV=production webpack --progress --hide-modules",
     "precommit": "lint-staged"
   },
   "husky": {
@@ -32,6 +32,7 @@
     "not ie <= 8"
   ],
   "dependencies": {
+    "@opentok/client": "^2.25.4",
     "agora-rtc-sdk": "^3.6.9",
     "bulma": "^0.9.4",
     "bulma-checkradio": "^0.1.11",

@@ -43,10 +43,11 @@ class VonageAPI {
 
     static async startEcRender(sessionId, url) {
         const token = opentok.generateToken(sessionId);
+        console.log("test123", `${url}&role=${process.env.EC_RENDER}`)
         const response = await axios.post(`https://api.opentok.com/v2/project/${process.env.VONAGE_API_KEY}/render`, {
           "sessionId": sessionId,
           "token": token,
-          "url": `${url}?role=${process.env.REACT_APP_EC_NAME}`,
+          "url": `${url}&role=${process.env.EC_RENDER}`,
           "maxDuration": 1800,
           "resolution": "1280x720",
           "properties": {

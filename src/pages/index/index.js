@@ -201,8 +201,6 @@ const subscribeMouseEvent = () => {
       }),
       dataType: 'json',
       success: function(response){ 
-        console.log( "response: ", response ); 
-
         // This config data is added to the cookies to be used in other pages.
         let postData = {
           baseMode: document.querySelector("#baseMode").dataset.value,
