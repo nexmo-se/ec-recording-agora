@@ -35,6 +35,12 @@ let mainId;
 let mainStream;
 let isEcRecording = false
 
+// skip if there is specific role
+const queryString = window.location.search;
+const urlParams = new URLSearchParams(queryString);
+const role = urlParams.get('role')
+const room = urlParams.get('room')
+
 const globalLog = logger.init("global", "blue");
 const shareLog = logger.init("share", "yellow");
 const localLog = logger.init("local", "green");
@@ -43,11 +49,6 @@ const localLog = logger.init("local", "green");
 
 const optionsInit = () => {
   return new Promise((resolve, reject) => {
-    const queryString = window.location.search;
-    const urlParams = new URLSearchParams(queryString);
-    const room = urlParams.get('room')
-    const role = urlParams.get('role')
-
     if (room && role) {
       // Get Token from backend
       $.post({
@@ -172,6 +173,9 @@ const vonageInit = (options) => {
 };
 
 const handleEcRecordingStarted = (archive) => {
+  if (room && role) {
+    return
+  }
   isEcRecording = true
   console.log("ec start")
   $(".recordingBtn").toggleClass("off");
@@ -180,6 +184,9 @@ const handleEcRecordingStarted = (archive) => {
 }
 
 const handleEcRecordingStopped = (archive) => {
+  if (room && role) {
+    return
+  }
   isEcRecording = false
   console.log("ec stop")
 
@@ -852,11 +859,6 @@ optionsInit().then((result) => {
   subscribeMouseEvents();
   subscribeStreamEvents();
   clientInit(client, options).then(uid => {
-    // skip if there is specific role
-    const queryString = window.location.search;
-    const urlParams = new URLSearchParams(queryString);
-    const role = urlParams.get('role')
-
     if (role) {
       return
     }
