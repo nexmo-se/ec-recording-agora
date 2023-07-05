@@ -1,7 +1,7 @@
 @import '../../assets/color.scss';
 
 #page-index {
-  display: none;
+  display: flex;
   background: url('../../assets/images/ag-index-background.png') center no-repeat;
   background-size: cover;
   position: relative;
@@ -20,10 +20,6 @@
       color: $light-blue;
     }
   }
-}
-
-#page-index.is-shown {
-  display: flex;
 }
 
 .login {
@@ -194,18 +190,6 @@
       color: rgba(0, 0, 0, .5);
     }
   }
-}
-
-#ec-page {
-  display: none;
-}
-
-#ec-page.is-shown {
-  display: block;
-  width: 100vw;
-  height: 100vh;
-  padding: 300px 120px 0px 120px;
-
 }
 
 #advancedOptions {

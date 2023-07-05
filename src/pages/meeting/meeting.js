@@ -17,13 +17,14 @@ import {
 } from "@/utils/BrowserCheck";
 import Notify from "@/utils/Notify";
 import Renderer from "@/utils/Render";
-import { SHARE_ID, RESOLUTION_ARR } from "@/utils/Settings";
+import { SHARE_ID, RESOLUTION_ARR, BACKEND_URL } from "@/utils/Settings";
 import { logger, log } from "../../utils/Logger";
 // eslint-disable-next-line
 import Polyfill from "@/utils/Polyfill";
 
 // If display a window to show video info
 const DUAL_STREAM_DEBUG = false;
+const SHOWN_CLASS = 'is-shown'
 let options = {};
 let client = {};
 let localStream = {};
@@ -32,10 +33,6 @@ let shareClient = null;
 let shareStream = null;
 let mainId;
 let mainStream;
-let vonageArchive = {
-  ecId: "",
-  archiveId: ""
-}
 let isEcRecording = false
 
 const globalLog = logger.init("global", "blue");
@@ -45,11 +42,67 @@ const localLog = logger.init("local", "green");
 // Initialize the options from cookies (set from index.js and precall.js)
 
 const optionsInit = () => {
+  return new Promise((resolve, reject) => {
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const room = urlParams.get('room')
+    const role = urlParams.get('role')
+
+    if (room && role) {
+      // Get Token from backend
+      $.post({
+        traditional: true,
+        url: `${BACKEND_URL}/initialize`,
+        contentType: 'application/json',
+        data: JSON.stringify( {
+          roomName: room, 
+          role: role
+        }),
+        dataType: 'json',
+        success: function(response){ 
+          // This config data is added to the cookies to be used in other pages.
+          let options = {
+            videoProfile: "480p_4",
+            videoProfileLow: "",
+            cameraId: "",
+            microphoneId: "",
+            channel: room,
+            transcode:  "interop",
+            attendeeMode:  "video",
+            baseMode:  "avc",
+            roomInfo: JSON.stringify(response),
+            displayMode: 1, // 0 Tile, 1 PIP, 2 screen share
+            uid: undefined, // In default it is dynamically generated
+            resolution: undefined
+          };
+        
+          options.resolution = 4 / 3;
+        
+          options.key = response.agoraAppId;;
+          options.token = response.agoraToken;;
+          
+          resolve(options)
+        },
+        error: function(XMLHttpRequest, textStatus, errorThrown) {
+          if (errorThrown) {
+            alert(`Server Error: ${errorThrown}`);
+          }
+          resolve(cookiesOptions())
+        }
+      });
+    }
+    else {
+      resolve(cookiesOptions())
+    }
+  })
+};
+
+const cookiesOptions = () => {
   let options = {
     videoProfile: Cookies.get("videoProfile").split(",")[0] || "480p_4",
     videoProfileLow: Cookies.get("videoProfileLow"),
-    cameraId: Cookies.get("cameraId"),
-    microphoneId: Cookies.get("microphoneId"),
+    cameraId: Cookies.get("cameraId") || "",
+    microphoneId: Cookies.get("microphoneId" || ""),
     channel: Cookies.get("channel") || "test",
     transcode: Cookies.get("transcode") || "interop",
     attendeeMode: Cookies.get("attendeeMode") || "video",
@@ -67,7 +120,7 @@ const optionsInit = () => {
   options.token = JSON.parse(options.roomInfo).agoraToken;;
 
   return options;
-};
+}
 
 // Initalizes the User Interface
 
@@ -118,11 +171,11 @@ const vonageInit = (options) => {
   });
 };
 
-const handleEcRecordingStarted = () => {
+const handleEcRecordingStarted = (archive) => {
   isEcRecording = true
   console.log("ec start")
   $(".recordingBtn").toggleClass("off");
-  $("#ec-recording-indicator").toggleClass("is-shown");
+  $("#ec-recording-indicator").toggleClass(SHOWN_CLASS);
   ButtonControl.enable(".recordingBtn");
 }
 
@@ -131,14 +184,14 @@ const handleEcRecordingStopped = (archive) => {
   console.log("ec stop")
 
   $(".recordingBtn").toggleClass("off");
-  $("#ec-recording-indicator").toggleClass("is-shown");
+  $("#ec-recording-indicator").toggleClass(SHOWN_CLASS);
   ButtonControl.enable(".recordingBtn");
 
   setTimeout(() => {
     if (!archive || !archive.id) return;
     // show download button
-    if (!$(".downloadBtn")[0].classList.contains('is-shown')) {
-      $(".downloadBtn")[0].classList.add('is-shown')
+    if (!$(".downloadBtn")[0].classList.contains(SHOWN_CLASS)) {
+      $(".downloadBtn")[0].classList.add(SHOWN_CLASS)
     }
     // Remove Listeners
     $(".downloadBtn").off()
@@ -146,7 +199,7 @@ const handleEcRecordingStopped = (archive) => {
       const roomInfo = JSON.parse(options.roomInfo)
       $.post({
         traditional: true,
-        url: 'http://localhost:3002/getVonageRecord', // TODO: update url
+        url: `${BACKEND_URL}/getVonageRecord`, // TODO: update url
         contentType: 'application/json',
         data: JSON.stringify( {
           vonageToken: roomInfo.vonageToken, 
@@ -432,20 +485,29 @@ const startEcRecording = () => {
     const roomInfo = JSON.parse(options.roomInfo)
     ButtonControl.disable(".recordingBtn");
 
-    console.log("start ec recording url", `${window.location.origin}?room=${roomInfo.name}`)
+    $("#notification-message")[0].innerHTML = 'EC Recording Request Submitted. You should see a EC recording indicator in a few seconds.'
+    if (!$("#notification")[0].classList.contains(SHOWN_CLASS)) {
+      $("#notification").addClass(SHOWN_CLASS)
+    }
+    setTimeout(function() {
+      $("#notification").removeClass(SHOWN_CLASS);
+    }, 5000);
+
      // Get Token from backend
      $.post({
       traditional: true,
-      url: 'http://localhost:3002/ecStartRecording', // TODO: update url
+      url: `${BACKEND_URL}/ecStartRecording`, // TODO: update url
       contentType: 'application/json',
       data: JSON.stringify( {
         sessionId: roomInfo.vonageSessionId, 
-        url: `${window.location.origin}?room=${roomInfo.name}`,
+        url: `${window.location.href}?room=${roomInfo.name}`,
         vonageToken: roomInfo.vonageToken
       }),
       dataType: 'json',
-      success: function(response){ 
-        vonageArchive = response
+      success: function(response){
+        Object.entries(response).map(item => {
+          return Cookies.set(item[0], item[1]);
+        });
       },
       error: function(XMLHttpRequest, textStatus, errorThrown) {
         if (errorThrown) {
@@ -464,14 +526,26 @@ const stopEcRecording = () => {
   const roomInfo = JSON.parse(options.roomInfo)
   ButtonControl.disable(".recordingBtn");
 
+  $("#notification-message")[0].innerHTML = 'EC Recording Stopped, You may download the record from the Menu in a few seconds.'
+  if (!$("#notification")[0].classList.contains(SHOWN_CLASS)) {
+    $("#notification")[0].classList.add(SHOWN_CLASS)
+  }
+
+  setTimeout(function() {
+    $("#notification").removeClass(SHOWN_CLASS);
+  }, 5000);
+
+   // Get Archive from cookies
+   const vonageArchiveId = Cookies.get("archiveId") || ""
+   const vonageEcId = Cookies.get("ecId") || ""
    // Get Token from backend
    $.post({
     traditional: true,
-    url: 'http://localhost:3002/ecStopRecording', // TODO: update url
+    url: `${BACKEND_URL}/ecStopRecording`, // TODO: update url
     contentType: 'application/json',
     data: JSON.stringify( {
-      ecId: vonageArchive.ecId, 
-      archiveId: vonageArchive.archiveId,
+      ecId: vonageEcId, 
+      archiveId: vonageArchiveId,
       vonageToken: roomInfo.vonageToken
     }),
     dataType: 'json',
@@ -655,6 +729,10 @@ const subscribeMouseEvents = () => {
     }
   });
 
+  $("#close-notification-button").on("click", function() {
+    $("#notification").removeClass(SHOWN_CLASS);
+  })
+
   $(".disableRemoteBtn").on("click", function(e) {
     if (
       e.currentTarget.classList.contains("disabled") ||
@@ -761,56 +839,59 @@ const infoDetectSchedule = () => {
 
 // ------------- start --------------
 // ----------------------------------
-options = optionsInit();
-uiInit(options);
-// initialize vonage session
-vonageInit(options)
-// eslint-disable-next-line
-client = AgoraRTC.createClient({
-  mode: options.transcode
-});
-subscribeMouseEvents();
-subscribeStreamEvents();
-clientInit(client, options).then(uid => {
-  // skip if there is specific role
-  const queryString = window.location.search;
-  const urlParams = new URLSearchParams(queryString);
-  const role = urlParams.get('role')
+optionsInit().then((result) => {
+  options = result
+  uiInit(options);
+  // initialize vonage session
+  vonageInit(options)
 
-  if (role) {
-    return
-  }
-  // Use selected device
-  let config = isSafari()
-    ? {}
-    : {
-        cameraId: options.cameraId,
-        microphoneId: options.microphoneId
-      };
-  localStream = streamInit(uid, options, config);
+  // eslint-disable-next-line
+  client = AgoraRTC.createClient({
+    mode: options.transcode
+  });
+  subscribeMouseEvents();
+  subscribeStreamEvents();
+  clientInit(client, options).then(uid => {
+    // skip if there is specific role
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const role = urlParams.get('role')
 
-  // Enable dual stream
-  if (options.attendeeMode !== "audience") {
-    // MainId default to be localStream's ID
-    mainId = uid;
-    mainStream = localStream;
-  }
-  enableDualStream();
-  localStream.init(
-    () => {
-      if (options.attendeeMode !== "audience") {
-        addStream(localStream, true);
-        client.publish(localStream, err => {
-          localLog("Publish local stream error: " + err);
-        });
-      }
-    },
-    err => {
-      localLog("getUserMedia failed", err);
+    if (role) {
+      return
     }
-  );
-});
+    // Use selected device
+    let config = isSafari()
+      ? {}
+      : {
+          cameraId: options.cameraId,
+          microphoneId: options.microphoneId
+        };
+    localStream = streamInit(uid, options, config);
 
-if (DUAL_STREAM_DEBUG) {
-  setInterval(infoDetectSchedule, 1000);
-}
+    // Enable dual stream
+    if (options.attendeeMode !== "audience") {
+      // MainId default to be localStream's ID
+      mainId = uid;
+      mainStream = localStream;
+    }
+    enableDualStream();
+    localStream.init(
+      () => {
+        if (options.attendeeMode !== "audience") {
+          addStream(localStream, true);
+          client.publish(localStream, err => {
+            localLog("Publish local stream error: " + err);
+          });
+        }
+      },
+      err => {
+        localLog("getUserMedia failed", err);
+      }
+    );
+  });
+
+  if (DUAL_STREAM_DEBUG) {
+    setInterval(infoDetectSchedule, 1000);
+  }
+});

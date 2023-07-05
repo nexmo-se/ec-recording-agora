@@ -167,5 +167,40 @@
     100% {
       background: '#A90000'
     }
-}
+  }
+
+  #notification {
+    position: absolute;
+    right: -500px;
+    top: 0;
+    background-color: white;
+    color: black;
+    padding: 16px 0px 16px 16px;
+    width: 360px;
+    z-index: 2;
+    vertical-align: top;
+    border-radius: 8px;
+    box-shadow: 4px 4px 4px gray;
+    transition: 0.5s;
+  }
+  #notification-message {
+    word-wrap: break-word;
+    width: 320px;
+    display: inline-block;
+  }
+  #close-notification-button {
+    all: unset;
+    vertical-align: top;
+    width: 20px;
+    display: inline-block;
+    height: 100%;
+    color: black;
+    text-shadow: 2px 2px 2px gray;
+  }
+
+  #notification.is-shown {
+    transition: 0.5s;
+    right: 0;
+  }
+
 }
