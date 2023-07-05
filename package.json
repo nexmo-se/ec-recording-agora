@@ -12,7 +12,7 @@
     "lint": "eslint src/**/*.{js,jsx} --fix",
     "dev": "export SET NODE_OPTIONS=--openssl-legacy-provider && cross-env NODE_ENV=development webpack-dev-server",
     "start": "npm run dev",
-    "server": "cd server && npm run start",
+    "server": "cd server && npm install && npm run start",
     "build": "export SET NODE_OPTIONS=--openssl-legacy-provider && cross-env NODE_ENV=production webpack --progress --hide-modules",
     "precommit": "lint-staged"
   },
