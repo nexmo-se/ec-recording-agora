@@ -10,7 +10,7 @@ const app = express()
 app.use(express.json());
 app.use(cors())
 
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.NERU_APP_PORT || process.env.PORT || 3002;
 
 const nocache = (req, res, next) => {
     res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate')
@@ -61,6 +61,10 @@ const decodeVonageToken = function (token) {
   return parsed;
 };
 
+
+app.get('/_/health', async (req, res) => {
+  res.sendStatus(200);
+});
 
 app.post('/initialize', auth, nocache, RoomListener.initialize)
 

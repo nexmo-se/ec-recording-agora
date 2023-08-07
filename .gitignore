@@ -5,7 +5,8 @@ yarn-error.log
 package-lock.json
 yarn-lock.json
 
-server/.env
+.env
+neru.yml
 
 # Editor directories and files
 .idea

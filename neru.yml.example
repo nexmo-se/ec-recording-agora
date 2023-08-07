@@ -1,0 +1,28 @@
+project:
+  name: agora-ec-recording
+instance:
+  name: dev
+  runtime: nodejs16
+  region: 
+  application-id: 
+  entrypoint:
+    - node
+    - server/server.js
+  environment:
+    - name: VONAGE_API_KEY
+      value: 
+    - name: VONAGE_API_SECRET
+      value: 
+    - name: AGORA_APP_ID
+      value: 
+    - name: AGORA_APP_CERT
+      value: 
+    - name: AUTH_PIN
+      value: 
+    - name: EC_RENDER
+      value: 
+debug:
+  name: debug
+  entrypoint:
+    - nodemon
+    - server/server.js
